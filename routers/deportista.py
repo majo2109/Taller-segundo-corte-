@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
-from models import Deportista
+from models import Deportista # Assuming Deportista is defined in models.py
 from db import get_session
 
 router = APIRouter(prefix="/deportistas", tags=["Deportistas"])
@@ -29,11 +29,12 @@ def actualizar_deportista(deportista_id: int, deportista_actualizado: Deportista
     if not deportista or not deportista.estado:
         raise HTTPException(status_code=404, detail="Deportista no encontrado")
 
-    # Actualizar los campos del deportista existente con los datos del body
-    deportista.nombre = deportista_actualizado.nombre
-    deportista.apellido = deportista_actualizado.apellido
-    # Asume que Deportista tiene más campos, actualiza aquí los que correspondan
-    # Ejemplo: deportista.otro_campo = deportista_actualizado.otro_campo
+    # 🔑 Fix: Use update logic to handle partial updates safely
+    # 1. Convert the incoming model to a dictionary, excluding unset fields.
+    update_data = deportista_actualizado.dict(exclude_unset=True)
+    
+    # 2. Apply the updates to the existing model instance.
+    deportista.sqlmodel_update(update_data)
     
     session.add(deportista)
     session.commit()
