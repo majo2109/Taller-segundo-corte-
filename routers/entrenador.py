@@ -2,15 +2,24 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 from models import Entrenador
 from db import get_session
+from sqlalchemy.exc import IntegrityError 
 
 router = APIRouter(prefix="/entrenadores", tags=["Entrenadores"])
 
 @router.post("/")
 def crear_entrenador(entrenador: Entrenador, session: Session = Depends(get_session)):
-    session.add(entrenador)
-    session.commit()
-    session.refresh(entrenador)
-    return entrenador
+    try:
+        session.add(entrenador)
+        session.commit()
+        session.refresh(entrenador)
+        return entrenador
+    except IntegrityError as e:
+        session.rollback() 
+        print(f"Error de Integridad de Base de Datos al crear entrenador: {e}")
+        raise HTTPException(status_code=400, detail="Error al crear entrenador: Cedula duplicada o campo obligatorio faltante.")
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(status_code=500, detail="Error interno del servidor al crear el entrenador.")
 
 @router.get("/")
 def listar_entrenadores(session: Session = Depends(get_session)):
@@ -22,16 +31,17 @@ def actualizar_entrenador(entrenador_id: int, entrenador_actualizado: Entrenador
     if not entrenador or not entrenador.estado:
         raise HTTPException(status_code=404, detail="Entrenador no encontrado")
 
-    # Actualizar los campos del entrenador existente con los datos del body
-    entrenador.nombre = entrenador_actualizado.nombre
-    entrenador.apellido = entrenador_actualizado.apellido
-    # Asume que Entrenador tiene más campos, actualiza aquí los que correspondan
-    # Ejemplo: entrenador.especialidad = entrenador_actualizado.especialidad
+    update_data = entrenador_actualizado.dict(exclude_unset=True)
+    entrenador.sqlmodel_update(update_data)
     
-    session.add(entrenador)
-    session.commit()
-    session.refresh(entrenador)
-    return entrenador
+    try:
+        session.add(entrenador)
+        session.commit()
+        session.refresh(entrenador)
+        return entrenador
+    except IntegrityError:
+        session.rollback()
+        raise HTTPException(status_code=400, detail="Error al actualizar entrenador: Cedula duplicada.")
 
 @router.delete("/{entrenador_id}")
 def eliminar_entrenador(entrenador_id: int, session: Session = Depends(get_session)):
