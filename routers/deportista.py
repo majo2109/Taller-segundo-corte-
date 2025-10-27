@@ -23,6 +23,23 @@ def obtener_deportista(deportista_id: int, session: Session = Depends(get_sessio
         raise HTTPException(status_code=404, detail="Deportista no encontrado")
     return deportista
 
+@router.put("/{deportista_id}")
+def actualizar_deportista(deportista_id: int, deportista_actualizado: Deportista, session: Session = Depends(get_session)):
+    deportista = session.get(Deportista, deportista_id)
+    if not deportista or not deportista.estado:
+        raise HTTPException(status_code=404, detail="Deportista no encontrado")
+
+    # Actualizar los campos del deportista existente con los datos del body
+    deportista.nombre = deportista_actualizado.nombre
+    deportista.apellido = deportista_actualizado.apellido
+    # Asume que Deportista tiene más campos, actualiza aquí los que correspondan
+    # Ejemplo: deportista.otro_campo = deportista_actualizado.otro_campo
+    
+    session.add(deportista)
+    session.commit()
+    session.refresh(deportista)
+    return deportista
+
 @router.delete("/{deportista_id}")
 def eliminar_deportista(deportista_id: int, session: Session = Depends(get_session)):
     deportista = session.get(Deportista, deportista_id)
